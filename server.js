@@ -18,19 +18,34 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(express.json());
-app.use(cors());
 
-// -------------- STATIC FRONTEND --------------
+// 🎯 CORS sauber konfigurieren
+const allowedOrigins = [
+  "http://localhost:5001", // backend lokal
+  "http://localhost:5173", // falls du mal Vite/Dev-Server nutzt
+  process.env.FRONTEND_URL, // deine Vercel-URL, z.B. https://moneta.vercel.app
+].filter(Boolean); // entfernt undefined/null
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // origin === undefined bei z.B. Postman oder curl → erlauben
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+  })
+);
+
+// -------------- STATIC FRONTEND (optional, lokal nützlich) --------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// STATIC Ordner:
+// Wenn du lokal noch das Frontend über Node testen willst:
 app.use(express.static(path.join(__dirname, "../frontend")));
-
-// EXTRA: /pages separat verfügbar machen
 app.use("/pages", express.static(path.join(__dirname, "../frontend/pages")));
-
-// EXTRA: /js verfügbar machen
 app.use("/frontend/js", express.static(path.join(__dirname, "../frontend/js")));
 
 // API ROUTES
@@ -38,12 +53,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/costs", costRoutes);
 app.use("/api/income", incomeRoutes);
 
-// ROOT Route → fixkosten.html
+// ROOT Route → optional nur lokal relevant
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
 });
 
-// Catch-All NUR für nicht-API Routen → fixkosten.html
+// Catch-All NUR für nicht-API Routen → optional
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
@@ -60,5 +75,5 @@ mongoose
   })
   .catch((err) => {
     console.error("❌ MongoDB Fehler:", err);
-    process.exit(1); // optional: Prozess beenden, wenn DB nicht erreichbar
+    process.exit(1);
   });
