@@ -15,7 +15,7 @@ const costSchema = new mongoose.Schema(
 
     abgebuchtByMonth: { type: Map, of: Number, default: {} },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Cost", costSchema);

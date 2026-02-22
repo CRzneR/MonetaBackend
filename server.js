@@ -21,10 +21,6 @@ const PORT = process.env.PORT || 5001;
 // 🔥 Render läuft hinter Proxy → notwendig für secure Cookies
 app.set("trust proxy", 1);
 
-// =======================
-// Middleware
-// =======================
-
 app.use(express.json());
 
 // =======================

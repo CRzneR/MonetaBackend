@@ -53,16 +53,24 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Falsches Passwort." });
     }
 
-    // ⭐ WICHTIG: Session speichern
+    // ⭐ Session speichern
     req.session.userId = user._id;
 
-    res.json({
-      message: "Login erfolgreich",
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-      },
+    // ⭐ Sicherstellen, dass Session gespeichert ist
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session Save Error:", err);
+        return res.status(500).json({ message: "Session konnte nicht gespeichert werden" });
+      }
+
+      res.json({
+        message: "Login erfolgreich",
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+        },
+      });
     });
   } catch (error) {
     console.error("❌ Fehler beim Login:", error);
@@ -96,13 +104,25 @@ router.get("/me", async (req, res) => {
 // Logout
 // =======================
 router.post("/logout", (req, res) => {
+  if (!req.session) {
+    return res.status(200).json({ message: "Bereits ausgeloggt" });
+  }
+
   req.session.destroy((err) => {
     if (err) {
+      console.error("❌ Logout Fehler:", err);
       return res.status(500).json({ message: "Logout fehlgeschlagen" });
     }
 
-    res.clearCookie("moneta.sid"); // Cookie Name aus server.js
-    res.json({ message: "Erfolgreich ausgeloggt" });
+    // 🔥 Cookie MUSS mit gleichen Optionen gelöscht werden
+    res.clearCookie("moneta.sid", {
+      path: "/",
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+
+    res.status(200).json({ message: "Erfolgreich ausgeloggt" });
   });
 });
 
