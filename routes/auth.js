@@ -53,23 +53,29 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Falsches Passwort." });
     }
 
-    // ⭐ Session speichern
-    req.session.userId = user._id;
-
-    // ⭐ Sicherstellen, dass Session gespeichert ist
-    req.session.save((err) => {
+    // 🔥 WICHTIG: Alte Session verwerfen → neue Session erstellen
+    req.session.regenerate((err) => {
       if (err) {
-        console.error("Session Save Error:", err);
-        return res.status(500).json({ message: "Session konnte nicht gespeichert werden" });
+        console.error("Session Regenerate Error:", err);
+        return res.status(500).json({ message: "Session Fehler" });
       }
 
-      res.json({
-        message: "Login erfolgreich",
-        user: {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-        },
+      req.session.userId = user._id;
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session Save Error:", err);
+          return res.status(500).json({ message: "Session konnte nicht gespeichert werden" });
+        }
+
+        res.json({
+          message: "Login erfolgreich",
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+          },
+        });
       });
     });
   } catch (error) {
@@ -114,7 +120,7 @@ router.post("/logout", (req, res) => {
       return res.status(500).json({ message: "Logout fehlgeschlagen" });
     }
 
-    // 🔥 Cookie MUSS mit gleichen Optionen gelöscht werden
+    // 🔥 Cookie exakt löschen (Cross-Site!)
     res.clearCookie("moneta.sid", {
       path: "/",
       httpOnly: true,

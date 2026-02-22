@@ -21,21 +21,24 @@ const PORT = process.env.PORT || 5001;
 // 🔥 Render läuft hinter Proxy → notwendig für secure Cookies
 app.set("trust proxy", 1);
 
+// =======================
+// Middleware
+// =======================
+
 app.use(express.json());
 
 // =======================
 // 🌐 CORS — wichtig für Vercel + Cookies
 // =======================
 
-app.use(
-  cors({
-    origin: "https://moneta-frontend.vercel.app",
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  }),
-);
+const corsOptions = {
+  origin: "https://moneta-frontend.vercel.app",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
 
-app.options("*", cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // =======================
 // 🍪 Session Middleware
@@ -47,25 +50,29 @@ app.use(
     secret: process.env.JWT_SECRET || "supersecret",
 
     resave: false,
+
+    // 🔥 CRITICAL: verhindert unnötige neue Sessions
     saveUninitialized: false,
+
     proxy: true,
 
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
+      ttl: 60 * 60 * 24 * 7, // 7 Tage
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true, // 🔥 HTTPS (Render nutzt HTTPS)
-      sameSite: "none", // 🔥 ERFORDERLICH für andere Domain
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 Tage
+      secure: true, // HTTPS
+      sameSite: "none", // Cross-Site erforderlich
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }),
 );
 
 // =======================
-// STATIC FRONTEND (optional lokal)
+// STATIC FRONTEND (nur lokal relevant)
 // =======================
 
 const __filename = fileURLToPath(import.meta.url);
