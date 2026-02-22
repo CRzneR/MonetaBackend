@@ -1,4 +1,5 @@
 // moneta-backend/server.js
+
 import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
@@ -6,7 +7,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ⭐ NEU: Session Imports
 import session from "express-session";
 import MongoStore from "connect-mongo";
 
@@ -18,17 +18,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// 🔥 Render läuft hinter Proxy → notwendig für secure Cookies
+app.set("trust proxy", 1);
+
 // =======================
 // Middleware
 // =======================
 
 app.use(express.json());
 
-// ⭐ CORS — wichtig für Cookies
+// =======================
+// 🌐 CORS — wichtig für Vercel + Cookies
+// =======================
+
 app.use(
   cors({
-    origin: true, // lokal ok, bei getrennten Domains konkrete URL angeben
-    credentials: true, // ⭐ notwendig für Session-Cookies
+    origin: "https://DEINE-VERCEL-APP.vercel.app", // ⚠️ HIER DEINE URL
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
@@ -36,16 +42,17 @@ app.use(
 app.options("*", cors());
 
 // =======================
-// ⭐ Session Middleware
+// 🍪 Session Middleware
 // =======================
 
 app.use(
   session({
-    name: "moneta.sid", // Cookie Name
+    name: "moneta.sid",
     secret: process.env.JWT_SECRET || "supersecret",
 
     resave: false,
     saveUninitialized: false,
+    proxy: true,
 
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
@@ -53,16 +60,16 @@ app.use(
     }),
 
     cookie: {
-      httpOnly: true, // JS kann Cookie nicht lesen
-      secure: false, // ⚠️ true bei HTTPS (Production!)
-      sameSite: "lax",
+      httpOnly: true,
+      secure: true, // 🔥 HTTPS (Render nutzt HTTPS)
+      sameSite: "none", // 🔥 ERFORDERLICH für andere Domain
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 Tage
     },
   }),
 );
 
 // =======================
-// STATIC FRONTEND (optional)
+// STATIC FRONTEND (optional lokal)
 // =======================
 
 const __filename = fileURLToPath(import.meta.url);
