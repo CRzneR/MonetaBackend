@@ -33,7 +33,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "https://DEINE-VERCEL-APP.vercel.app", // ⚠️ HIER DEINE URL
+    origin: "https://monetabackend.vercel.app",
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
