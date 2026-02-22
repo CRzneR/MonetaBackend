@@ -4,10 +4,25 @@ import Income from "../models/Income.js";
 
 const router = express.Router();
 
-// Alle Einnahmen abrufen
-router.get("/", async (req, res) => {
+// 🔐 Session-Middleware
+function requireAuth(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Nicht eingeloggt" });
+  }
+  next();
+}
+
+// ============================
+// GET: Nur Einnahmen des Users
+// ============================
+router.get("/", requireAuth, async (req, res) => {
   try {
-    const incomes = await Income.find();
+    const filter = { userId: req.session.userId };
+
+    if (req.query.year) filter.year = Number(req.query.year);
+    if (req.query.month) filter.month = req.query.month;
+
+    const incomes = await Income.find(filter).sort({ createdAt: -1 });
     res.json(incomes);
   } catch (error) {
     console.error("GET /api/income error:", error);
@@ -15,16 +30,20 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Neue Einnahme speichern
-router.post("/", async (req, res) => {
+// ============================
+// POST: Neue Einnahme speichern
+// ============================
+router.post("/", requireAuth, async (req, res) => {
   try {
     const { source, amount, category, month } = req.body;
 
     const newIncome = new Income({
+      userId: req.session.userId, // ⭐ wichtig
       source,
       amount,
       category,
       month,
+      year: new Date().getFullYear(),
     });
 
     await newIncome.save();
@@ -35,10 +54,20 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Einnahme löschen
-router.delete("/:id", async (req, res) => {
+// ============================
+// DELETE: Nur eigene Einnahme
+// ============================
+router.delete("/:id", requireAuth, async (req, res) => {
   try {
-    await Income.findByIdAndDelete(req.params.id);
+    const deleted = await Income.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.session.userId,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Einnahme nicht gefunden" });
+    }
+
     res.json({ message: "Einnahme gelöscht" });
   } catch (error) {
     console.error("DELETE /api/income/:id error:", error);
@@ -46,5 +75,4 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// WICHTIG für deinen Import in server.js:
 export default router;

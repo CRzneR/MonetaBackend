@@ -2,17 +2,25 @@ import express from "express";
 const router = express.Router();
 
 import Cost from "../models/Cost.js";
-import authMiddleware from "../middleware/authMiddleware.js";
 
-// GET: Kosten nur vom eingeloggten Nutzer (optional gefiltert nach month/year)
-router.get("/", authMiddleware, async (req, res) => {
+// 🔐 Middleware: Session prüfen
+function requireAuth(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Nicht eingeloggt" });
+  }
+  next();
+}
+
+// ============================
+// GET: Kosten des eingeloggten Users
+// ============================
+router.get("/", requireAuth, async (req, res) => {
   try {
-    const filter = { userId: req.user.id };
+    const filter = { userId: req.session.userId };
 
     if (req.query.year) filter.year = Number(req.query.year);
 
     if (req.query.month) {
-      // ✅ Monat + alle recurring Kosten
       filter.$or = [{ month: req.query.month }, { recurring: true }];
     }
 
@@ -23,8 +31,10 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// POST: Neue Kosten mit userId speichern (inkl. month/year)
-router.post("/", authMiddleware, async (req, res) => {
+// ============================
+// POST: Neue Kosten
+// ============================
+router.post("/", requireAuth, async (req, res) => {
   const { kosten, name, kategorie, costType, month, year, recurring } = req.body;
 
   const now = new Date();
@@ -44,17 +54,13 @@ router.post("/", authMiddleware, async (req, res) => {
   ];
 
   const newCost = new Cost({
-    userId: req.user.id,
+    userId: req.session.userId, // ⭐ aus Session
     kosten,
     name,
     kategorie,
     costType,
     year: Number.isFinite(Number(year)) ? Number(year) : now.getFullYear(),
-
-    // ✅ wenn recurring -> month egal (optional null setzen)
     month: recurring ? null : month || months[now.getMonth()],
-
-    // ✅ neu
     recurring: Boolean(recurring),
   });
 
@@ -66,8 +72,10 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
+// ============================
 // PATCH: Abgebucht aktualisieren
-router.patch("/:id", authMiddleware, async (req, res) => {
+// ============================
+router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { abgebucht, month, year } = req.body;
 
@@ -75,12 +83,12 @@ router.patch("/:id", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "month und year sind erforderlich" });
     }
 
-    const key = `${year}-${String(month).padStart(2, "0")}`; // z.B. 2026-02
+    const key = `${year}-${String(month).padStart(2, "0")}`;
 
     const updated = await Cost.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      { _id: req.params.id, userId: req.session.userId },
       { $set: { [`abgebuchtByMonth.${key}`]: abgebucht } },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) return res.status(404).json({ message: "Kosten nicht gefunden" });
@@ -91,12 +99,14 @@ router.patch("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE: Nur Kosten löschen, die dem User gehören
-router.delete("/:id", authMiddleware, async (req, res) => {
+// ============================
+// DELETE
+// ============================
+router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const deleted = await Cost.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.id,
+      userId: req.session.userId,
     });
 
     if (!deleted) return res.status(404).json({ message: "Kosten nicht gefunden" });
