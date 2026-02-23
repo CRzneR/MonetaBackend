@@ -53,30 +53,16 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Falsches Passwort." });
     }
 
-    // 🔥 WICHTIG: Alte Session verwerfen → neue Session erstellen
-    req.session.regenerate((err) => {
-      if (err) {
-        console.error("Session Regenerate Error:", err);
-        return res.status(500).json({ message: "Session Fehler" });
-      }
+    // ✅ Session setzen — fertig
+    req.session.userId = user._id;
 
-      req.session.userId = user._id;
-
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session Save Error:", err);
-          return res.status(500).json({ message: "Session konnte nicht gespeichert werden" });
-        }
-
-        res.json({
-          message: "Login erfolgreich",
-          user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-          },
-        });
-      });
+    return res.json({
+      message: "Login erfolgreich",
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error("❌ Fehler beim Login:", error);
@@ -126,6 +112,7 @@ router.post("/logout", (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
+      domain: ".onrender.com", // 🔥 auch hier!
     });
 
     res.status(200).json({ message: "Erfolgreich ausgeloggt" });

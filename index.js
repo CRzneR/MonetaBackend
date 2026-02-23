@@ -11,7 +11,7 @@ app.use(express.json()); // Bodyparser für JSON
 mongoose
   .connect(
     "mongodb+srv://<user>:<password>@cluster0.mongodb.net/monetaDB?retryWrites=true&w=majority",
-    { useNewUrlParser: true, useUnifiedTopology: true }
+    { useNewUrlParser: true, useUnifiedTopology: true },
   )
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error(err));

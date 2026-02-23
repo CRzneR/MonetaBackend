@@ -45,12 +45,10 @@ app.use(cors(corsOptions));
 app.use(
   session({
     name: "moneta.sid",
-
     secret: process.env.SESSION_SECRET || "supersecret",
 
     resave: false,
     saveUninitialized: false,
-
     proxy: true,
 
     store: MongoStore.create({
@@ -61,10 +59,9 @@ app.use(
 
     cookie: {
       httpOnly: true,
-
-      secure: true, // HTTPS Pflicht
-      sameSite: "none", // 🔥 Cross-Site Pflicht
-
+      secure: true,
+      sameSite: "none",
+      domain: ".onrender.com", // 🔥 entscheidend
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }),
