@@ -1,11 +1,12 @@
 import express from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 const router = express.Router();
 
 // =======================
-// Registrierung
+// REGISTER
 // =======================
 router.post("/register", async (req, res) => {
   try {
@@ -20,28 +21,29 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Benutzer existiert bereits." });
     }
 
-    const newUser = new User({ username, email, password });
+    const hashed = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      username,
+      email,
+      password: hashed,
+    });
+
     await newUser.save();
 
-    return res.status(201).json({
-      message: "Benutzer erfolgreich registriert",
-    });
-  } catch (error) {
-    console.error("❌ Fehler bei der Registrierung:", error);
-    return res.status(500).json({ message: "Interner Serverfehler" });
+    res.status(201).json({ message: "Registrierung erfolgreich" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Serverfehler" });
   }
 });
 
 // =======================
-// Login (Session setzen)
+// LOGIN
 // =======================
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Bitte E-Mail und Passwort eingeben." });
-    }
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -53,10 +55,16 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Falsches Passwort." });
     }
 
-    // ✅ Session setzen — fertig
-    req.session.userId = user._id;
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    return res.json({
+    res.cookie("moneta_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    });
+
+    res.json({
       message: "Login erfolgreich",
       user: {
         id: user._id,
@@ -64,59 +72,48 @@ router.post("/login", async (req, res) => {
         email: user.email,
       },
     });
-  } catch (error) {
-    console.error("❌ Fehler beim Login:", error);
-    res.status(500).json({ message: "Interner Serverfehler" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Serverfehler" });
   }
 });
 
 // =======================
-// Auth-Check: Bin ich eingeloggt?
+// AUTH CHECK
 // =======================
 router.get("/me", async (req, res) => {
   try {
-    if (!req.session.userId) {
+    const token = req.cookies?.moneta_token;
+
+    if (!token) {
       return res.status(401).json({ message: "Nicht eingeloggt" });
     }
 
-    const user = await User.findById(req.session.userId).select("-password");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
       return res.status(401).json({ message: "User nicht gefunden" });
     }
 
     res.json(user);
-  } catch (error) {
-    console.error("❌ Fehler bei /me:", error);
-    res.status(500).json({ message: "Interner Serverfehler" });
+  } catch {
+    res.status(401).json({ message: "Token ungültig" });
   }
 });
 
 // =======================
-// Logout
+// LOGOUT
 // =======================
 router.post("/logout", (req, res) => {
-  if (!req.session) {
-    return res.status(200).json({ message: "Bereits ausgeloggt" });
-  }
-
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("❌ Logout Fehler:", err);
-      return res.status(500).json({ message: "Logout fehlgeschlagen" });
-    }
-
-    // 🔥 Cookie exakt löschen (Cross-Site!)
-    res.clearCookie("moneta.sid", {
-      path: "/",
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: ".onrender.com", // 🔥 auch hier!
-    });
-
-    res.status(200).json({ message: "Erfolgreich ausgeloggt" });
+  res.clearCookie("moneta_token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
   });
+
+  res.json({ message: "Logout erfolgreich" });
 });
 
 export default router;
