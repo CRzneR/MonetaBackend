@@ -18,7 +18,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// 🔥 Render läuft hinter Proxy → notwendig für secure Cookies
+// 🔥 Render läuft hinter Proxy
 app.set("trust proxy", 1);
 
 // =======================
@@ -28,17 +28,15 @@ app.set("trust proxy", 1);
 app.use(express.json());
 
 // =======================
-// 🌐 CORS — wichtig für Vercel + Cookies
+// 🌐 CORS — für Vercel + Cookies
 // =======================
 
 const corsOptions = {
   origin: "https://moneta-frontend.vercel.app",
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 
 // =======================
 // 🍪 Session Middleware
@@ -47,11 +45,10 @@ app.options("*", cors(corsOptions));
 app.use(
   session({
     name: "moneta.sid",
-    secret: process.env.JWT_SECRET || "supersecret",
+
+    secret: process.env.SESSION_SECRET || "supersecret",
 
     resave: false,
-
-    // 🔥 CRITICAL: verhindert unnötige neue Sessions
     saveUninitialized: false,
 
     proxy: true,
@@ -59,20 +56,22 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
-      ttl: 60 * 60 * 24 * 7, // 7 Tage
+      ttl: 60 * 60 * 24 * 7,
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true, // HTTPS
-      sameSite: "none", // Cross-Site erforderlich
+
+      secure: true, // HTTPS Pflicht
+      sameSite: "none", // 🔥 Cross-Site Pflicht
+
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }),
 );
 
 // =======================
-// STATIC FRONTEND (nur lokal relevant)
+// STATIC (nur lokal)
 // =======================
 
 const __filename = fileURLToPath(import.meta.url);
@@ -98,14 +97,14 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/pages/fixkosten.html"));
 });
 
-// SPA-Fallback (kein API)
+// SPA-Fallback
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(__dirname, "../frontend/pages/fixkosten.html"));
 });
 
 // =======================
-// MongoDB Verbindung & Serverstart
+// MongoDB Verbindung & Start
 // =======================
 
 mongoose
