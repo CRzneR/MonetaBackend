@@ -1,53 +1,71 @@
-// index.js
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
+// index.js — HAUPTSERVER
+
+import dotenv from "dotenv";
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+
+import authRoutes from "./routes/auth.js";
+import costRoutes from "./routes/costs.js";
+import incomeRoutes from "./routes/income.js";
+
+dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(express.json()); // Bodyparser für JSON
+const PORT = process.env.PORT || 5001;
 
-// MongoDB verbinden
+// Render läuft hinter Proxy
+app.set("trust proxy", 1);
+
+// =======================
+// Middleware
+// =======================
+
+app.use(express.json());
+app.use(cookieParser()); // 🔥 wichtig für JWT-Cookie
+
+// =======================
+// CORS für Vercel + Cookies
+// =======================
+
+app.use(
+  cors({
+    origin: "https://moneta-frontend.vercel.app",
+    credentials: true,
+  }),
+);
+
+// =======================
+// API ROUTES
+// =======================
+
+app.use("/api/auth", authRoutes);
+app.use("/api/costs", costRoutes);
+app.use("/api/income", incomeRoutes);
+
+// =======================
+// Health Check
+// =======================
+
+app.get("/", (req, res) => {
+  res.send("Moneta API läuft 🚀");
+});
+
+// =======================
+// MongoDB & Start
+// =======================
+
 mongoose
-  .connect(
-    "mongodb+srv://<user>:<password>@cluster0.mongodb.net/monetaDB?retryWrites=true&w=majority",
-    { useNewUrlParser: true, useUnifiedTopology: true },
-  )
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error(err));
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB verbunden");
 
-// Schema erstellen
-const incomeSchema = new mongoose.Schema({
-  source: String,
-  amount: Number,
-  month: String,
-  category: String,
-});
-
-const Income = mongoose.model("Income", incomeSchema);
-
-// === Routen ===
-// Alle Einnahmen abrufen
-app.get("/api/incomes", async (req, res) => {
-  const incomes = await Income.find();
-  res.json(incomes);
-});
-
-// Einnahme hinzufügen
-app.post("/api/incomes", async (req, res) => {
-  const { source, amount, month, category } = req.body;
-  const newIncome = new Income({ source, amount, month, category });
-  await newIncome.save();
-  res.json(newIncome);
-});
-
-// Einnahme löschen
-app.delete("/api/incomes/:id", async (req, res) => {
-  const { id } = req.params;
-  await Income.findByIdAndDelete(id);
-  res.json({ success: true });
-});
-
-// Server starten
-const PORT = 5001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Server läuft auf Port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Fehler:", err);
+    process.exit(1);
+  });
