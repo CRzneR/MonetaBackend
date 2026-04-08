@@ -42,12 +42,12 @@ app.use("/api/income", incomeRoutes);
 
 // ROOT Route → optional nur lokal relevant
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../pages/frontend/fixkosten.html"));
+  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
 });
 
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
-  res.sendFile(path.join(__dirname, "../pages/frontend/fixkosten.html"));
+  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
 });
 
 // MongoDB Verbindung & Serverstart
