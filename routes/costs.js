@@ -7,7 +7,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 // GET
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const filter = { userId: req.user.userId }; 
+    const filter = { userId: req.user.userId };
 
     if (req.query.year) filter.year = Number(req.query.year);
 
@@ -28,12 +28,22 @@ router.post("/", authMiddleware, async (req, res) => {
 
   const now = new Date();
   const months = [
-    "Jan","Feb","Mär","Apr","Mai","Jun",
-    "Jul","Aug","Sep","Okt","Nov","Dez",
+    "Jan",
+    "Feb",
+    "Mär",
+    "Apr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Dez",
   ];
 
   const newCost = new Cost({
-    userId: req.user.userId, 
+    userId: req.user.userId,
     kosten,
     name,
     kategorie,
@@ -52,20 +62,52 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // PATCH
+// Unterstützt mehrere Anwendungsfälle im selben Endpunkt:
+// 1) Monatlicher "tatsächlich abgebucht"-Wert: Body { abgebucht, month, year }
+// 2) Basisfelder des Eintrags ändern: Body kann name, kategorie, costType, kosten enthalten
+// 3) recurring/entryMonth/entryYear: legt fest, ob & für welchen Monat der Eintrag gilt
+//    (separate Feldnamen ggü. month/year, damit kein Konflikt mit Fall 1 entsteht)
 router.patch("/:id", authMiddleware, async (req, res) => {
   try {
-    const { abgebucht, month, year } = req.body;
+    const {
+      abgebucht,
+      month,
+      year,
+      name,
+      kategorie,
+      costType,
+      kosten,
+      recurring,
+      entryMonth,
+      entryYear,
+    } = req.body;
 
-    if (!month || !year) {
-      return res.status(400).json({ message: "month und year sind erforderlich" });
+    const setFields = {};
+
+    if (abgebucht !== undefined) {
+      if (!month || !year) {
+        return res.status(400).json({ message: "month und year sind erforderlich" });
+      }
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+      setFields[`abgebuchtByMonth.${key}`] = abgebucht;
     }
 
-    const key = `${year}-${String(month).padStart(2, "0")}`;
+    if (name !== undefined) setFields.name = name;
+    if (kategorie !== undefined) setFields.kategorie = kategorie;
+    if (costType !== undefined) setFields.costType = costType;
+    if (kosten !== undefined) setFields.kosten = kosten;
+    if (recurring !== undefined) setFields.recurring = recurring;
+    if (entryMonth !== undefined) setFields.month = entryMonth;
+    if (entryYear !== undefined) setFields.year = Number(entryYear);
+
+    if (Object.keys(setFields).length === 0) {
+      return res.status(400).json({ message: "Keine Änderungen übermittelt" });
+    }
 
     const updated = await Cost.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.userId }, 
-      { $set: { [`abgebuchtByMonth.${key}`]: abgebucht } },
-      { new: true }
+      { _id: req.params.id, userId: req.user.userId },
+      { $set: setFields },
+      { new: true },
     );
 
     if (!updated) return res.status(404).json({ message: "Kosten nicht gefunden" });
@@ -81,7 +123,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const deleted = await Cost.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.userId, 
+      userId: req.user.userId,
     });
 
     if (!deleted) return res.status(404).json({ message: "Kosten nicht gefunden" });
