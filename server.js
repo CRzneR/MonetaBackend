@@ -19,7 +19,14 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ["https://moneta-frontend.vercel.app", "http://localhost:5001"],
+    origin: [
+      "https://moneta-frontend.vercel.app",
+      "https://bilanzbalance.de",
+      "https://www.bilanzbalance.de",
+      "http://bilanzbalance.de",
+      "http://www.bilanzbalance.de",
+      "http://localhost:5001",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -42,12 +49,7 @@ app.use("/api/income", incomeRoutes);
 
 // ROOT Route → optional nur lokal relevant
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
-});
-
-app.get("*", (req, res, next) => {
-  if (req.originalUrl.startsWith("/api")) return next();
-  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
+  res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
 });
 
 // MongoDB Verbindung & Serverstart
