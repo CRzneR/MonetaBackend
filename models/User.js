@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -21,8 +20,28 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationTokenHash: {
+      type: String,
+      default: null,
+    },
+    verificationExpires: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true } // erstellt createdAt & updatedAt
+  { timestamps: true }, // erstellt createdAt & updatedAt
 );
 
 // 🔐 Passwort hashen vor dem Speichern
@@ -44,4 +63,3 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
 };
 
 export default mongoose.model("User", userSchema);
-
