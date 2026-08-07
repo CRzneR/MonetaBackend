@@ -1,6 +1,6 @@
 // moneta-backend/server.js
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
@@ -10,7 +10,6 @@ import authRoutes from "./routes/auth.js";
 import costRoutes from "./routes/costs.js";
 import incomeRoutes from "./routes/income.js";
 
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
