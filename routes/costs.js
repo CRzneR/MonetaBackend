@@ -71,6 +71,7 @@ router.patch("/:id", authMiddleware, async (req, res) => {
   try {
     const {
       abgebucht,
+      bezahlt,
       month,
       year,
       name,
@@ -90,6 +91,14 @@ router.patch("/:id", authMiddleware, async (req, res) => {
       }
       const key = `${year}-${String(month).padStart(2, "0")}`;
       setFields[`abgebuchtByMonth.${key}`] = abgebucht;
+    }
+
+    if (bezahlt !== undefined) {
+      if (!month || !year) {
+        return res.status(400).json({ message: "month und year sind erforderlich" });
+      }
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+      setFields[`bezahltByMonth.${key}`] = Boolean(bezahlt);
     }
 
     if (name !== undefined) setFields.name = name;
