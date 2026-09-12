@@ -3,8 +3,6 @@ import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/auth.js";
 import costRoutes from "./routes/costs.js";
@@ -33,22 +31,15 @@ app.use(
 );
 app.options("*", cors());
 
-// -------------- STATIC FRONTEND (optional, lokal nützlich) --------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.use(express.static(path.join(__dirname, "../frontend")));
-app.use("/pages", express.static(path.join(__dirname, "../frontend/pages")));
-app.use("/frontend/js", express.static(path.join(__dirname, "../frontend/js")));
-
 // API ROUTES
 app.use("/api/auth", authRoutes);
 app.use("/api/costs", costRoutes);
 app.use("/api/income", incomeRoutes);
 
-// ROOT Route → optional nur lokal relevant
+// ROOT Route → nur zur Bestätigung, dass die API läuft
+// (z. B. für Render-Healthchecks, die "/" aufrufen)
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
+  res.json({ status: "ok", service: "BilanzBalance API" });
 });
 
 // MongoDB Verbindung & Serverstart
