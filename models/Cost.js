@@ -14,8 +14,9 @@ const costSchema = new mongoose.Schema(
     year: { type: Number, default: null },
 
     abgebuchtByMonth: { type: Map, of: Number, default: {} },
+    bezahltByMonth: { type: Map, of: Boolean, default: {} },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Cost", costSchema);

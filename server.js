@@ -1,6 +1,6 @@
 // moneta-backend/server.js
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
@@ -10,20 +10,28 @@ import authRoutes from "./routes/auth.js";
 import costRoutes from "./routes/costs.js";
 import incomeRoutes from "./routes/income.js";
 
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(express.json());
+// Limit erhöht: Profilbilder werden als Base64 im JSON-Body übertragen und
+// überschreiten express' Standard-Limit von 100kb sonst schnell.
+app.use(express.json({ limit: "5mb" }));
 
 app.use(
   cors({
-    origin: ["https://moneta-frontend.vercel.app", "http://localhost:5001"],
+    origin: [
+      "https://moneta-frontend.vercel.app",
+      "https://bilanzbalance.de",
+      "https://www.bilanzbalance.de",
+      "http://bilanzbalance.de",
+      "http://www.bilanzbalance.de",
+      "http://localhost:5001",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 app.options("*", cors());
 
@@ -42,12 +50,7 @@ app.use("/api/income", incomeRoutes);
 
 // ROOT Route → optional nur lokal relevant
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
-});
-
-app.get("*", (req, res, next) => {
-  if (req.originalUrl.startsWith("/api")) return next();
-  res.sendFile(path.join(__dirname, "../frontend/fixkosten.html"));
+  res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
 });
 
 // MongoDB Verbindung & Serverstart

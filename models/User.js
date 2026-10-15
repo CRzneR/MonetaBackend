@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -21,8 +20,35 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationTokenHash: {
+      type: String,
+      default: null,
+    },
+    verificationExpires: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
+    // Profilbild als Base64 Data-URI (z. B. "data:image/jpeg;base64,..."),
+    // client-seitig auf max. 400px verkleinert. Kein separater Datei-Upload,
+    // da Render kein persistentes Dateisystem für klassische Uploads bietet.
+    avatar: {
+      type: String,
+      default: null,
+    },
   },
-  { timestamps: true } // erstellt createdAt & updatedAt
+  { timestamps: true }, // erstellt createdAt & updatedAt
 );
 
 // 🔐 Passwort hashen vor dem Speichern
@@ -44,4 +70,3 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
 };
 
 export default mongoose.model("User", userSchema);
-
