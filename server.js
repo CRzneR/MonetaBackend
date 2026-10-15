@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -12,6 +13,8 @@ import incomeRoutes from "./routes/income.js";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+app.disable("x-powered-by");
 
 // Middleware
 // Limit erhöht: Profilbilder werden als Base64 im JSON-Body übertragen und
@@ -35,22 +38,39 @@ app.use(
 );
 app.options("*", cors());
 
-// -------------- STATIC FRONTEND (optional, lokal nützlich) --------------
+// -------------- STATIC FRONTEND (nur lokal) --------------
+// Auf Render läuft nur der Ordner "backend". Der Ordner "../frontend" existiert
+// dort nicht (das Frontend liegt auf IONOS), deshalb wird er nur eingebunden,
+// wenn er wirklich vorhanden ist.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.static(path.join(__dirname, "../frontend")));
-app.use("/pages", express.static(path.join(__dirname, "../frontend/pages")));
-app.use("/frontend/js", express.static(path.join(__dirname, "../frontend/js")));
+const frontendDir = path.join(__dirname, "../frontend");
+const hasFrontend = fs.existsSync(path.join(frontendDir, "index.html"));
+
+if (hasFrontend) {
+  app.use(express.static(frontendDir));
+  app.use("/pages", express.static(path.join(frontendDir, "pages")));
+  app.use("/frontend/js", express.static(path.join(frontendDir, "js")));
+}
 
 // API ROUTES
 app.use("/api/auth", authRoutes);
 app.use("/api/costs", costRoutes);
 app.use("/api/income", incomeRoutes);
 
-// ROOT Route → optional nur lokal relevant
+// Unbekannte API-Pfade: sauberes JSON statt HTML-Fehlerseite
+app.use("/api", (req, res) => {
+  res.status(404).json({ message: "Endpoint nicht gefunden." });
+});
+
+// ROOT Route
+// Lokal: Landingpage aus dem Frontend. Auf Render: einfacher Status.
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/pages/login.html"));
+  if (hasFrontend) {
+    return res.sendFile(path.join(frontendDir, "index.html"));
+  }
+  res.json({ status: "ok", service: "BilanzBalance API" });
 });
 
 // MongoDB Verbindung & Serverstart
@@ -60,6 +80,11 @@ mongoose
     console.log("✅ MongoDB verbunden");
     app.listen(PORT, () => {
       console.log(`🚀 Server läuft auf Port ${PORT}`);
+      console.log(
+        hasFrontend
+          ? "🖥️  Frontend wird lokal mit ausgeliefert."
+          : "ℹ️  Kein Frontend-Ordner gefunden – nur API-Betrieb.",
+      );
     });
   })
   .catch((err) => {
