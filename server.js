@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/auth.js";
+import accountRoutes from "./routes/account.js";
 import costRoutes from "./routes/costs.js";
 import incomeRoutes from "./routes/income.js";
 
@@ -56,6 +57,7 @@ if (hasFrontend) {
 
 // API ROUTES
 app.use("/api/auth", authRoutes);
+app.use("/api/account", accountRoutes);
 app.use("/api/costs", costRoutes);
 app.use("/api/income", incomeRoutes);
 
