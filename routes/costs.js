@@ -4,15 +4,55 @@ const router = express.Router();
 import Cost from "../models/Cost.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
+const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+/**
+ * Monatsnummer = Jahr * 12 + Monatsindex. Damit lassen sich Monate über
+ * Jahresgrenzen hinweg einfach vergleichen. Liefert null bei ungültigen Werten.
+ */
+function monthIndex(month, year) {
+  const m = MONTHS.indexOf(month);
+  const y = Number(year);
+
+  if (m === -1 || !Number.isFinite(y)) return null;
+
+  return y * 12 + m;
+}
+
 // GET
+// Mit ?month=...&year=... werden nur Einträge geliefert, die in diesem Monat gelten:
+//  - Variable Kosten: month/year stimmen überein
+//  - Wiederkehrende Kosten: der Monat liegt zwischen validFrom und validUntil.
+//    Ältere Einträge ohne validFrom gelten ab Januar ihres gespeicherten Jahres.
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
+    const { month, year } = req.query;
 
-    if (req.query.year) filter.year = Number(req.query.year);
+    if (month && year) {
+      const idx = monthIndex(month, year);
 
-    if (req.query.month) {
-      filter.$or = [{ month: req.query.month }, { recurring: true }];
+      if (idx === null) {
+        return res.status(400).json({ message: "Ungültiger Monat oder ungültiges Jahr" });
+      }
+
+      filter.$or = [
+        {
+          recurring: true,
+          $and: [
+            { $or: [{ validFrom: { $lte: idx } }, { validFrom: null, year: { $lte: Number(year) } }] },
+            { $or: [{ validUntil: null }, { validUntil: { $gte: idx } }] },
+          ],
+        },
+        { recurring: { $ne: true }, month, year: Number(year) },
+      ];
+    } else {
+      // Rückwärtskompatibel: nur Jahr oder nur Monat angegeben
+      if (year) filter.year = Number(year);
+
+      if (month) {
+        filter.$or = [{ month }, { recurring: true }];
+      }
     }
 
     const costs = await Cost.find(filter).sort({ createdAt: -1 });
@@ -23,24 +63,16 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // POST
+// Wiederkehrende Kosten gelten ab dem übergebenen Monat (month/year) und in
+// allen folgenden Monaten, nicht rückwirkend.
 router.post("/", authMiddleware, async (req, res) => {
   const { kosten, name, kategorie, costType, month, year, recurring } = req.body;
 
   const now = new Date();
-  const months = [
-    "Jan",
-    "Feb",
-    "Mär",
-    "Apr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Okt",
-    "Nov",
-    "Dez",
-  ];
+  const isRecurring = Boolean(recurring);
+
+  const entryYear = Number.isFinite(Number(year)) ? Number(year) : now.getFullYear();
+  const entryMonth = MONTHS.includes(month) ? month : MONTHS[now.getMonth()];
 
   const newCost = new Cost({
     userId: req.user.userId,
@@ -48,9 +80,11 @@ router.post("/", authMiddleware, async (req, res) => {
     name,
     kategorie,
     costType,
-    year: Number.isFinite(Number(year)) ? Number(year) : now.getFullYear(),
-    month: recurring ? null : month || months[now.getMonth()],
-    recurring: Boolean(recurring),
+    year: entryYear,
+    month: isRecurring ? null : entryMonth,
+    recurring: isRecurring,
+    validFrom: isRecurring ? monthIndex(entryMonth, entryYear) : null,
+    validUntil: null,
   });
 
   try {
@@ -128,14 +162,32 @@ router.patch("/:id", authMiddleware, async (req, res) => {
 });
 
 // DELETE
+// Mit ?month=...&year=... werden wiederkehrende Kosten nur ab diesem Monat
+// beendet (validUntil = Vormonat). Frühere Monate bleiben unverändert.
+// Liegt der Monat am oder vor dem Start des Eintrags, wird er komplett gelöscht.
+// Variable Kosten und Aufrufe ohne month/year löschen den Eintrag komplett.
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const deleted = await Cost.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.userId,
-    });
+    const cost = await Cost.findOne({ _id: req.params.id, userId: req.user.userId });
 
-    if (!deleted) return res.status(404).json({ message: "Kosten nicht gefunden" });
+    if (!cost) return res.status(404).json({ message: "Kosten nicht gefunden" });
+
+    const idx = monthIndex(req.query.month, req.query.year);
+
+    if (cost.recurring && idx !== null) {
+      // Ältere Einträge ohne validFrom: Start = Januar ihres Jahres
+      const start = cost.validFrom ?? (cost.year != null ? Number(cost.year) * 12 : null);
+
+      if (start !== null && idx > start) {
+        const end = idx - 1;
+        cost.validUntil = cost.validUntil == null ? end : Math.min(cost.validUntil, end);
+        await cost.save();
+
+        return res.json({ message: "Kosten ab diesem Monat gelöscht", validUntil: cost.validUntil });
+      }
+    }
+
+    await Cost.deleteOne({ _id: cost._id });
 
     res.json({ message: "Kosten gelöscht" });
   } catch (err) {

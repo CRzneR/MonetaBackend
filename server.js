@@ -40,9 +40,7 @@ app.use(
 app.options("*", cors());
 
 // -------------- STATIC FRONTEND (nur lokal) --------------
-// Auf Render läuft nur der Ordner "backend". Der Ordner "../frontend" existiert
-// dort nicht (das Frontend liegt auf IONOS), deshalb wird er nur eingebunden,
-// wenn er wirklich vorhanden ist.
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

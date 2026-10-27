@@ -13,6 +13,9 @@ const costSchema = new mongoose.Schema(
     month: { type: String, default: null },
     year: { type: Number, default: null },
 
+    validFrom: { type: Number, default: null },
+    validUntil: { type: Number, default: null },
+
     abgebuchtByMonth: { type: Map, of: Number, default: {} },
     bezahltByMonth: { type: Map, of: Boolean, default: {} },
   },
